@@ -1,0 +1,10 @@
+target/
+node_modules/
+.stellar/
+.env
+.env.local
+.env*.local
+apps/web/.next/
+apps/web/node_modules/
+*.tsbuildinfo
+.DS_Store
