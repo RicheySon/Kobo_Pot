@@ -17,4 +17,4 @@
 - [x] No secrets are committed
 - [x] README commands are reproducible
 
-Wallet connection and the on-chain dashboard refresh still need Freighter in the browser. The contract checks above were run on Stellar Testnet with the Stellar CLI. See `STELLAR14_PROGRESS.md`.
+Wallet connection and the on-chain dashboard refresh still need a Stellar wallet in the browser. The contract checks above were run on Stellar Testnet with the Stellar CLI. See `STELLAR14_PROGRESS.md`.
