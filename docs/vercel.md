@@ -12,10 +12,10 @@ In the Vercel project:
 | Root Directory | `apps/web` |
 | Include source files outside the Root Directory | On |
 | Node.js version | 22 |
-| Install command | `npm ci --prefix ..` |
+| Install command | `npm ci --prefix ../..` |
 | Build command | `next build` |
 
-`apps/web/vercel.json` already sets the install and build commands. The install command uses the workspace lockfile at the repository root, so the files outside `apps/web` must be included in the build.
+`apps/web/vercel.json` already sets the install and build commands. From `apps/web`, `../..` is the repository root, where `package-lock.json` lives. The build must include files outside `apps/web`.
 
 Production, Preview, and Development can share these public values. A Vercel environment variable overrides the matching line in `apps/web/.env.production`.
 

@@ -6,7 +6,7 @@ import type { NextConfig } from "next";
 const appDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
-  outputFileTracingRoot: path.join(appDirectory, ".."),
+  outputFileTracingRoot: path.join(appDirectory, "../.."),
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
