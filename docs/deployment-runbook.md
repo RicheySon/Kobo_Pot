@@ -1,6 +1,6 @@
 # Deployment runbook
 
-Use Stellar Testnet only. Do not commit `.env.local`, `.stellar`, or secret keys.
+Use Stellar Testnet only. Do not commit `.env.local`, `.env.production`, `.stellar`, contract IDs, or secret keys.
 
 1. Check tools:
 
@@ -27,7 +27,7 @@ bash scripts/deploy-token.sh
 bash scripts/deploy-contract.sh
 ```
 
-5. Copy the printed contract IDs into `NEXT_PUBLIC_CONTRACT_ID` and `NEXT_PUBLIC_TOKEN_CONTRACT_ID` in `apps/web/.env.local` for local runs, and into the Vercel project for a hosted build. Every variable and its source is listed in `docs/vercel.md`. Leave the other values matching `apps/web/.env.example`.
+5. Copy the printed contract IDs into `NEXT_PUBLIC_CONTRACT_ID` and `NEXT_PUBLIC_TOKEN_CONTRACT_ID` in gitignored `apps/web/.env.local` for local runs, and into the Vercel project for a hosted build. Every variable and its source is listed in `docs/vercel.md`. Do not write those IDs back into the repository.
 
 6. Open a DUSD trustline for the demo account, mint sandbox DUSD, create one pot, and contribute the rounded-down value of GHS 1.00:
 
@@ -35,6 +35,6 @@ bash scripts/deploy-contract.sh
 bash scripts/seed-demo.sh
 ```
 
-Record the contract IDs and transaction hashes from the command output. If a command fails, record that output and stop. Do not invent an ID.
+Record the contract IDs and transaction hashes from the command output in `.env.local` or the Vercel project. If a command fails, record that output locally and stop. Do not invent an ID, and do not commit the contract IDs.
 
-Public IDs may be written into `STELLAR14_PROGRESS.md` after they appear in a successful command. Secret keys stay in `.stellar`.
+Secret keys stay in `.stellar`.

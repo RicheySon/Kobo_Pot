@@ -17,47 +17,30 @@ In the Vercel project:
 
 `apps/web/vercel.json` already sets the install and build commands. From `apps/web`, `../..` is the repository root, where `package-lock.json` lives. The build must include files outside `apps/web`.
 
-Production, Preview, and Development can share these public values. A Vercel environment variable overrides the matching line in `apps/web/.env.production`.
+Set the variables below in Vercel for Production, Preview, and Development. The repository does not store `.env.production` or filled contract IDs.
 
 ## Environment variables
 
-Every app variable is public (`NEXT_PUBLIC_`). Do not add a Stellar secret key, a seed phrase, or anything from `.stellar/` to Vercel.
+Every app variable is public (`NEXT_PUBLIC_`). Do not add a Stellar secret key, a seed phrase, or anything from `.stellar/` to Vercel, and do not commit those values.
 
-Paste this set into Project → Settings → Environment Variables for Production, Preview, and Development:
-
-```bash
-NEXT_PUBLIC_APP_NAME=KoboPot
-NEXT_PUBLIC_STELLAR_NETWORK=testnet
-NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
-NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
-NEXT_PUBLIC_CONTRACT_ID=CBVNOGADSVJ7QZ5VEVLI23SINFMRKHYJ5BFNFCG2UBRWYS55AJKSRNE3
-NEXT_PUBLIC_TOKEN_CONTRACT_ID=CB3IJM3BO5V5XQULRYZPDURO4NW7RJOBNCVQWUVF767CQULXXGI5HHAR
-NEXT_PUBLIC_TOKEN_SYMBOL=DUSD
-NEXT_PUBLIC_TOKEN_DECIMALS=7
-NEXT_PUBLIC_EXPLORER_BASE_URL=https://stellar.expert/explorer/testnet
-NEXT_PUBLIC_DEMO_GHS_PER_DUSD=12.00
-NEXT_PUBLIC_DEMO_MODE=true
-```
-
-The two contract IDs above are the Testnet deployment recorded in `STELLAR14_PROGRESS.md`. They are public contract addresses. DUSD still has no real monetary value.
+`apps/web/.env.example` lists the variable names. Contract ID lines in that file stay empty. For a local run, copy it to gitignored `apps/web/.env.local` and fill the two contract IDs there. For a hosted build, enter the same names in Project → Settings → Environment Variables.
 
 ## Where each value comes from
 
-| Variable | Value to use | Where to get it |
-| --- | --- | --- |
-| `NEXT_PUBLIC_APP_NAME` | `KoboPot` | Fixed by the app. Any other name is rejected. |
-| `NEXT_PUBLIC_STELLAR_NETWORK` | `testnet` | Fixed by the app. Mainnet is rejected. |
-| `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` | Stellar’s published Testnet passphrase: [Networks](https://developers.stellar.org/docs/networks). |
-| `NEXT_PUBLIC_STELLAR_RPC_URL` | `https://soroban-testnet.stellar.org` | Stellar’s public Testnet Soroban RPC: [RPC providers](https://developers.stellar.org/docs/data/rpc/rpc-providers). |
-| `NEXT_PUBLIC_HORIZON_URL` | `https://horizon-testnet.stellar.org` | Stellar’s public Testnet Horizon: [Horizon](https://developers.stellar.org/docs/data/horizon). |
-| `NEXT_PUBLIC_CONTRACT_ID` | `C` + 55 characters | Last line of `bash scripts/deploy-contract.sh` after `stellar contract build`. The current sandbox contract is `CBVNOGADSVJ7QZ5VEVLI23SINFMRKHYJ5BFNFCG2UBRWYS55AJKSRNE3`. |
-| `NEXT_PUBLIC_TOKEN_CONTRACT_ID` | `C` + 55 characters | Last line of `bash scripts/deploy-token.sh`. That command deploys the DUSD Stellar Asset Contract. The current sandbox token is `CB3IJM3BO5V5XQULRYZPDURO4NW7RJOBNCVQWUVF767CQULXXGI5HHAR`. |
-| `NEXT_PUBLIC_TOKEN_SYMBOL` | `DUSD` | The asset code used by `scripts/deploy-token.sh`. The app rejects any other symbol. |
-| `NEXT_PUBLIC_TOKEN_DECIMALS` | `7` | Stellar assets use 7 decimal places. This is the SAC base-unit scale, not a service you sign up for. |
-| `NEXT_PUBLIC_EXPLORER_BASE_URL` | `https://stellar.expert/explorer/testnet` | [Stellar Expert Testnet](https://stellar.expert/explorer/testnet). The URL must contain `/testnet`. |
-| `NEXT_PUBLIC_DEMO_GHS_PER_DUSD` | `12.00` | The sandbox demonstration rate. It is not a market price and it is not loaded from an exchange. |
-| `NEXT_PUBLIC_DEMO_MODE` | `true` | Fixed by the app. `false` is rejected. |
+| Variable | Where to get it |
+| --- | --- |
+| `NEXT_PUBLIC_APP_NAME` | Fixed by the app as `KoboPot`. Any other name is rejected. |
+| `NEXT_PUBLIC_STELLAR_NETWORK` | Fixed by the app as `testnet`. Mainnet is rejected. |
+| `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE` | Stellar’s published Testnet passphrase on [Networks](https://developers.stellar.org/docs/networks). |
+| `NEXT_PUBLIC_STELLAR_RPC_URL` | Stellar’s public Testnet Soroban RPC: [RPC providers](https://developers.stellar.org/docs/data/rpc/rpc-providers). |
+| `NEXT_PUBLIC_HORIZON_URL` | Stellar’s public Testnet Horizon: [Horizon](https://developers.stellar.org/docs/data/horizon). |
+| `NEXT_PUBLIC_CONTRACT_ID` | Last line of `bash scripts/deploy-contract.sh` after `stellar contract build`. Keep it in `.env.local` or Vercel only. |
+| `NEXT_PUBLIC_TOKEN_CONTRACT_ID` | Last line of `bash scripts/deploy-token.sh`. That command deploys the DUSD Stellar Asset Contract. Keep it in `.env.local` or Vercel only. |
+| `NEXT_PUBLIC_TOKEN_SYMBOL` | `DUSD`, the asset code used by `scripts/deploy-token.sh`. The app rejects any other symbol. |
+| `NEXT_PUBLIC_TOKEN_DECIMALS` | `7`. Stellar assets use 7 decimal places. This is the SAC base-unit scale, not a service you sign up for. |
+| `NEXT_PUBLIC_EXPLORER_BASE_URL` | [Stellar Expert Testnet](https://stellar.expert/explorer/testnet). The URL must contain `/testnet`. |
+| `NEXT_PUBLIC_DEMO_GHS_PER_DUSD` | `12.00`. The sandbox demonstration rate. It is not a market price and it is not loaded from an exchange. |
+| `NEXT_PUBLIC_DEMO_MODE` | `true`. Fixed by the app. `false` is rejected. |
 
 ## Values that do not belong on Vercel
 
