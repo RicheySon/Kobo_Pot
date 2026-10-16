@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #f6f1e6;
+  --color-cream-deep: #e7dcc6;
+  --color-ink: #1c1915;
+  --color-pine: #1f7a4d;
+  --color-pine-dark: #0f5c34;
+  --color-clay: #9a3e24;
+  --font-sans: var(--font-source-sans), "Source Sans 3", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.primary-button {
+  background: #1f7a4d;
+  color: #fff;
+}
+
+.primary-button:hover {
+  background: #0f5c34;
+}
+
+.secondary-button {
+  background: #e7dcc6;
+  color: #1c1915;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.6;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.text-input:focus-visible {
+  outline: 2px solid #1f7a4d;
+  outline-offset: 2px;
+}
+
+.text-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid #e7dcc6;
+  background: #fff;
+  padding: 0.75rem 0.9rem;
+  color: #1c1915;
+}
