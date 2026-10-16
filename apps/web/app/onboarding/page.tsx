@@ -9,7 +9,7 @@ export default function OnboardingPage() {
         demonstration rate is 12.00 GHS per DUSD. DUSD has no real monetary value.
       </p>
       <ol className="list-decimal space-y-3 pl-5">
-        <li>Install Freighter and switch it to Testnet. KoboPot never asks for a secret key.</li>
+        <li>Choose a Stellar wallet from the connect list and switch it to Testnet. KoboPot never asks for a secret key.</li>
         <li>Connect the wallet. If the account is new, fund it with Friendbot so it can pay Testnet fees, then open a DUSD trustline before approving a contribution.</li>
         <li>Create a pot with a goal in cedis, a fixed saving or a round-up interval, and an optional unlock date.</li>
         <li>Record a simulated purchase. Review the pesewa saving and the rounded-down DUSD amount.</li>

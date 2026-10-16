@@ -1,10 +1,9 @@
 "use client";
 
-import { Networks, StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
-import { FreighterModule } from "@creit.tech/stellar-wallets-kit/modules/freighter";
-
 import { devLog } from "../observability";
 import { getPublicConfig } from "./config";
+
+const GHOSTSIG_ID = "ghostsig";
 
 export type WalletFailure =
   | "unavailable"
@@ -22,48 +21,82 @@ export class WalletFlowError extends Error {
   }
 }
 
-let initialized = false;
+type WalletKit = typeof import("@creit.tech/stellar-wallets-kit");
 
-function ensureKit(): void {
-  if (initialized) {
-    return;
-  }
-  const config = getPublicConfig();
-  StellarWalletsKit.init({
-    modules: [new FreighterModule()],
-    network: Networks.TESTNET,
-  });
-  StellarWalletsKit.setNetwork(Networks.TESTNET);
-  initialized = true;
-  devLog("wallet_kit_ready", { network: config.network });
+let initialized = false;
+let kitPromise: Promise<WalletKit> | null = null;
+
+function loadKit(): Promise<WalletKit> {
+  kitPromise ??= import("@creit.tech/stellar-wallets-kit");
+  return kitPromise;
 }
 
-export async function freighterAvailable(): Promise<boolean> {
-  ensureKit();
-  return new FreighterModule().isAvailable();
+export async function testnetWalletModules(walletConnect?: {
+  projectId: string;
+  origin: string;
+}) {
+  const [{ Networks }, { defaultModules }, { GhostsigModule }, walletConnectModule] = await Promise.all([
+    import("@creit.tech/stellar-wallets-kit"),
+    import("@creit.tech/stellar-wallets-kit/modules/utils"),
+    import("@creit.tech/stellar-wallets-kit/modules/ghostsig"),
+    import("@creit.tech/stellar-wallets-kit/modules/wallet-connect"),
+  ]);
+  const modules = defaultModules({
+    filterBy: (module) => module.productId !== GHOSTSIG_ID,
+  });
+  modules.push(new GhostsigModule({ network: Networks.TESTNET }));
+
+  const projectId = walletConnect?.projectId.trim() ?? "";
+  if (projectId && walletConnect) {
+    modules.push(
+      new walletConnectModule.WalletConnectModule({
+        projectId,
+        allowedChains: [walletConnectModule.WalletConnectTargetChain.TESTNET],
+        metadata: {
+          name: "KoboPot",
+          description: "Stellar Testnet savings pots. DUSD has no real monetary value.",
+          url: walletConnect.origin,
+          icons: [`${walletConnect.origin}/favicon.ico`],
+        },
+      }),
+    );
+  }
+
+  return modules;
+}
+
+async function ensureKit(): Promise<WalletKit> {
+  const kit = await loadKit();
+  if (initialized) {
+    return kit;
+  }
+  if (typeof window === "undefined") {
+    throw new WalletFlowError("unavailable", "Open KoboPot in a browser to connect a wallet.");
+  }
+  const config = getPublicConfig();
+  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
+  kit.StellarWalletsKit.init({
+    modules: await testnetWalletModules({
+      projectId,
+      origin: window.location.origin,
+    }),
+    network: kit.Networks.TESTNET,
+    authModal: {
+      hideUnsupportedWallets: false,
+      showInstallLabel: true,
+    },
+  });
+  kit.StellarWalletsKit.setNetwork(kit.Networks.TESTNET);
+  initialized = true;
+  devLog("wallet_kit_ready", { network: config.network });
+  return kit;
 }
 
 export async function connectTestnetWallet(): Promise<string> {
-  ensureKit();
-  const available = await freighterAvailable();
-  if (!available) {
-    devLog("wallet_connection", { result: "unavailable" });
-    throw new WalletFlowError(
-      "unavailable",
-      "Freighter is not available in this browser. Install it, switch it to Testnet, and try again.",
-    );
-  }
+  const kit = await ensureKit();
   try {
-    const { address } = await StellarWalletsKit.authModal();
-    const network = await StellarWalletsKit.getNetwork();
-    const config = getPublicConfig();
-    if (network.networkPassphrase !== config.networkPassphrase) {
-      devLog("wallet_connection", { result: "wrong_network" });
-      throw new WalletFlowError(
-        "wrong_network",
-        "The wallet is not on Stellar Testnet. Switch Freighter to Testnet and connect again.",
-      );
-    }
+    const { address } = await kit.StellarWalletsKit.authModal();
+    await assertSelectedWalletIsTestnet(kit);
     devLog("wallet_connection", { result: "connected" });
     return address;
   } catch (error) {
@@ -78,11 +111,30 @@ export async function connectTestnetWallet(): Promise<string> {
   }
 }
 
-export async function signTestnetTransaction(xdr: string, address: string): Promise<string> {
-  ensureKit();
+async function assertSelectedWalletIsTestnet(kit: WalletKit): Promise<void> {
   const config = getPublicConfig();
   try {
-    const signed = await StellarWalletsKit.signTransaction(xdr, {
+    const network = await kit.StellarWalletsKit.getNetwork();
+    if (network.networkPassphrase && network.networkPassphrase !== config.networkPassphrase) {
+      devLog("wallet_connection", { result: "wrong_network" });
+      throw new WalletFlowError(
+        "wrong_network",
+        "The wallet is not on Stellar Testnet. Switch it to Testnet and connect again.",
+      );
+    }
+  } catch (error) {
+    if (error instanceof WalletFlowError) {
+      throw error;
+    }
+    devLog("wallet_connection", { result: "network_unreported" });
+  }
+}
+
+export async function signTestnetTransaction(xdr: string, address: string): Promise<string> {
+  const kit = await ensureKit();
+  const config = getPublicConfig();
+  try {
+    const signed = await kit.StellarWalletsKit.signTransaction(xdr, {
       networkPassphrase: config.networkPassphrase,
       address,
     });
@@ -98,5 +150,6 @@ export async function disconnectWallet(): Promise<void> {
   if (!initialized) {
     return;
   }
-  await StellarWalletsKit.disconnect();
+  const kit = await loadKit();
+  await kit.StellarWalletsKit.disconnect();
 }

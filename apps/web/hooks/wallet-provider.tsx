@@ -2,13 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-import { devLog } from "@/lib/observability";
-import {
-  WalletFlowError,
-  connectTestnetWallet,
-  disconnectWallet,
-  freighterAvailable,
-} from "@/lib/stellar/wallet";
+import { WalletFlowError, connectTestnetWallet, disconnectWallet } from "@/lib/stellar/wallet";
 
 type WalletContextValue = {
   address: string | null;
@@ -34,14 +28,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setBusy(true);
         setMessage(null);
         try {
-          const available = await freighterAvailable();
-          if (!available) {
-            setMessage(
-              "Freighter is not available in this browser. Install it and switch it to Testnet.",
-            );
-            devLog("wallet_connection", { result: "unavailable" });
-            return;
-          }
           const next = await connectTestnetWallet();
           setAddress(next);
         } catch (error) {

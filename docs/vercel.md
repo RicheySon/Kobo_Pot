@@ -41,13 +41,14 @@ Every app variable is public (`NEXT_PUBLIC_`). Do not add a Stellar secret key, 
 | `NEXT_PUBLIC_EXPLORER_BASE_URL` | [Stellar Expert Testnet](https://stellar.expert/explorer/testnet). The URL must contain `/testnet`. |
 | `NEXT_PUBLIC_DEMO_GHS_PER_DUSD` | `12.00`. The sandbox demonstration rate. It is not a market price and it is not loaded from an exchange. |
 | `NEXT_PUBLIC_DEMO_MODE` | `true`. Fixed by the app. `false` is rejected. |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional. Create a project at [Reown Cloud](https://cloud.reown.com) and copy the project id. Leave it empty to hide WalletConnect. Do not commit the id. |
 
 ## Values that do not belong on Vercel
 
 | Material | Where it lives |
 | --- | --- |
 | Demo and issuer secret keys | Gitignored `.stellar/` after `bash scripts/setup-testnet.sh`. The Stellar CLI prints public addresses only. |
-| Freighter account | The visitor’s browser extension, set to Testnet. |
+| Stellar wallet | The visitor’s wallet, set to Testnet. Connect wallet lists the Stellar wallets supported by the app. |
 | Testnet XLM for fees | [Friendbot](https://developers.stellar.org/docs/learn/fundamentals/networks#friendbot) or `stellar keys fund <identity> --network testnet`. |
 | DUSD trustline and mint | `bash scripts/seed-demo.sh`, run locally by the issuer identity. |
 
