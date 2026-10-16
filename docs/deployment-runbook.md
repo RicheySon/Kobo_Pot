@@ -27,14 +27,7 @@ bash scripts/deploy-token.sh
 bash scripts/deploy-contract.sh
 ```
 
-5. Copy the printed contract IDs into `apps/web/.env.local`:
-
-```bash
-NEXT_PUBLIC_CONTRACT_ID=
-NEXT_PUBLIC_TOKEN_CONTRACT_ID=
-```
-
-Leave every other value matching `apps/web/.env.example`.
+5. Copy the printed contract IDs into `NEXT_PUBLIC_CONTRACT_ID` and `NEXT_PUBLIC_TOKEN_CONTRACT_ID` in `apps/web/.env.local` for local runs, and into the Vercel project for a hosted build. Every variable and its source is listed in `docs/vercel.md`. Leave the other values matching `apps/web/.env.example`.
 
 6. Open a DUSD trustline for the demo account, mint sandbox DUSD, create one pot, and contribute the rounded-down value of GHS 1.00:
 

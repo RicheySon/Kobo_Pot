@@ -43,7 +43,11 @@ npm run build
 npm run dev
 ```
 
-Copy `apps/web/.env.example` to `apps/web/.env.local` after a real Testnet deployment and fill the contract and token IDs. Leave them empty until then. The app builds with the defaults in `apps/web/lib/stellar/config.ts`.
+Public environment variables, including the current Testnet contract IDs and where each value comes from, are in `docs/vercel.md`. Copy `apps/web/.env.example` to `apps/web/.env.local` for local overrides. The same public values are in `apps/web/.env.production` for a Vercel build.
+
+## Vercel
+
+Set the project Root Directory to `apps/web`, enable source files outside that directory, and use Node.js 22. Install and build commands are in `apps/web/vercel.json`. The full variable list is in `docs/vercel.md`.
 
 ## Testnet
 
