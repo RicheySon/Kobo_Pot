@@ -43,7 +43,7 @@ npm run build
 npm run dev
 ```
 
-Public environment variables, including the current Testnet contract IDs and where each value comes from, are in `docs/vercel.md`. Copy `apps/web/.env.example` to `apps/web/.env.local` for local overrides. The same public values are in `apps/web/.env.production` for a Vercel build.
+Variable names and where to obtain each one are in `docs/vercel.md`. Copy `apps/web/.env.example` to `apps/web/.env.local` and set the contract IDs there. Do not commit `.env.local`, `.env.production`, or secret keys. Hosted builds read the same variables from the Vercel project settings.
 
 ## Vercel
 

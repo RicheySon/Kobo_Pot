@@ -17,3 +17,15 @@ if grep -RIlE \
 fi
 
 echo "No Stellar secret-key pattern found."
+
+tracked_env="$(git ls-files | grep -E '(^|/)\.env($|\..*)' | grep -vE '(^|/)\.env\.example$' || true)"
+if [ -n "$tracked_env" ]; then
+  echo "Tracked environment files must not be committed:" >&2
+  printf '%s\n' "$tracked_env" >&2
+  exit 1
+fi
+
+if grep -Eq '^(NEXT_PUBLIC_CONTRACT_ID|NEXT_PUBLIC_TOKEN_CONTRACT_ID)=.+' apps/web/.env.example; then
+  echo "apps/web/.env.example must leave contract IDs empty." >&2
+  exit 1
+fi
