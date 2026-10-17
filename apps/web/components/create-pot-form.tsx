@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Field } from "@/components/field";
@@ -14,7 +14,7 @@ import { fixedSavingPesewas } from "@/lib/savings/calculations";
 import { savePotMetadata } from "@/lib/storage/pots";
 import { getPublicConfig } from "@/lib/stellar/config";
 import { transactionExplorerUrl } from "@/lib/stellar/explorer";
-import { TransactionFlowError, submitOperation, type TxPhase } from "@/lib/stellar/transactions";
+import { TransactionFlowError, phaseLabel, submitOperation, type TxPhase } from "@/lib/stellar/transactions";
 import { categories, potFormSchema, type PotFormValues } from "@/lib/validation/schemas";
 
 export function CreatePotForm() {
@@ -25,6 +25,7 @@ export function CreatePotForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [technical, setTechnical] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<PotFormValues>({
     resolver: zodResolver(potFormSchema),
@@ -42,24 +43,37 @@ export function CreatePotForm() {
 
   const values = form.watch();
   const preview = useMemo(() => previewPot(values, config.demoGhsPerDusd, config.tokenDecimals), [values, config.demoGhsPerDusd, config.tokenDecimals]);
+  const busy = wallet.busy || phase === "preparing" || phase === "awaiting_signature" || phase === "submitting" || phase === "confirming";
+
+  useEffect(() => {
+    if (message) {
+      statusRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [message, phase]);
 
   async function onSubmit(input: PotFormValues) {
     setHash(null);
     setTechnical(null);
-    if (!wallet.address) {
-      setPhase("wallet_unavailable");
-      setMessage("Connect a Testnet wallet before creating a pot.");
-      return;
-    }
     if (!preview.ok) {
       setPhase("contract_rejection");
       setMessage(preview.message);
       return;
     }
+    let address = wallet.address;
+    if (!address) {
+      setPhase("awaiting_signature");
+      setMessage("Choose a Testnet wallet to approve this pot.");
+      address = await wallet.connect();
+      if (!address) {
+        setPhase("wallet_unavailable");
+        setMessage("Connect a Testnet wallet before creating a pot.");
+        return;
+      }
+    }
     try {
       const result = await submitOperation({
-        publicKey: wallet.address,
-        operation: buildCreatePot(wallet.address, preview.goalBaseUnits, preview.unlockAt),
+        publicKey: address,
+        operation: buildCreatePot(address, preview.goalBaseUnits, preview.unlockAt),
         onPhase: setPhase,
       });
       const potId = readPotIdResult(result.returnValue);
@@ -131,16 +145,18 @@ export function CreatePotForm() {
         <textarea className="text-input min-h-24" {...form.register("note")} />
       </Field>
       <Review preview={preview} rate={config.demoGhsPerDusd} decimals={config.tokenDecimals} />
-      <button className="primary-button" type="submit" disabled={phase === "preparing" || phase === "awaiting_signature" || phase === "submitting" || phase === "confirming"}>
-        Approve pot creation
+      <div ref={statusRef}>
+        <TxStatus
+          phase={phase}
+          message={message}
+          technical={technical}
+          hash={hash}
+          explorerUrl={hash ? transactionExplorerUrl(config.explorerBaseUrl, hash) : null}
+        />
+      </div>
+      <button className="primary-button" type="submit" disabled={busy}>
+        {busy ? phaseLabel(phase) : wallet.address ? "Approve pot creation" : "Connect wallet and approve"}
       </button>
-      <TxStatus
-        phase={phase}
-        message={message}
-        technical={technical}
-        hash={hash}
-        explorerUrl={hash ? transactionExplorerUrl(config.explorerBaseUrl, hash) : null}
-      />
     </form>
   );
 }
