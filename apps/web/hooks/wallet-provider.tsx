@@ -8,7 +8,7 @@ type WalletContextValue = {
   address: string | null;
   busy: boolean;
   message: string | null;
-  connect: () => Promise<void>;
+  connect: () => Promise<string | null>;
   disconnect: () => Promise<void>;
 };
 
@@ -30,12 +30,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         try {
           const next = await connectTestnetWallet();
           setAddress(next);
+          return next;
         } catch (error) {
           const text =
             error instanceof WalletFlowError
               ? error.message
               : "The wallet could not be connected.";
           setMessage(text);
+          return null;
         } finally {
           setBusy(false);
         }
