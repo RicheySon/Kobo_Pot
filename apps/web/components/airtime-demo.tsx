@@ -1,285 +1,255 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { Field } from "@/components/field";
-import { TxStatus } from "@/components/tx-status";
-import { usePotMetadataList } from "@/hooks/local-records";
-import { useWallet } from "@/hooks/wallet-provider";
-import { buildContribute, readPotResult } from "@/lib/contract/client";
 import {
   airtimeBundles,
-  airtimeDescription,
-  airtimeNetworks,
+  createDummyAirtimeOrder,
   findAirtimeBundle,
+  findGhanaNetwork,
+  ghanaNetworks,
   maskPhone,
   parseGhanaPhone,
+  usualNetworkForPhone,
   type AirtimeBundleId,
   type AirtimeNetwork,
+  type DummyAirtimeOrder,
 } from "@/lib/savings/airtime";
-import { savingPesewas } from "@/lib/savings/calculations";
-import {
-  MoneyInputError,
-  formatBaseUnits,
-  formatPesewas,
-  parseRateToPesewas,
-  pesewasToBaseUnits,
-} from "@/lib/savings/money";
-import { createSandboxReference, sha256Hex } from "@/lib/savings/reference";
-import { savePurchase, type PotMetadata } from "@/lib/storage/pots";
-import { getPublicConfig } from "@/lib/stellar/config";
-import { transactionExplorerUrl } from "@/lib/stellar/explorer";
-import { TransactionFlowError, phaseLabel, submitOperation, type TxPhase } from "@/lib/stellar/transactions";
+import { listDummyAirtimeOrders, saveDummyAirtimeOrder, subscribeDummyAirtimeOrders } from "@/lib/storage/airtime";
 
 export function AirtimeDemo() {
-  const wallet = useWallet();
-  const config = getPublicConfig();
-  const pots = usePotMetadataList();
-  const initialPotId = useSearchParams().get("pot") ?? "";
-  const [potId, setPotId] = useState(initialPotId);
+  const orders = useSyncExternalStore(subscribeDummyAirtimeOrders, listDummyAirtimeOrders, emptyOrders);
   const [network, setNetwork] = useState<AirtimeNetwork>("MTN");
+  const [networkLocked, setNetworkLocked] = useState(false);
   const [bundleId, setBundleId] = useState<AirtimeBundleId>("ghs-10");
   const [phone, setPhone] = useState("");
-  const [phase, setPhase] = useState<TxPhase>("idle");
-  const [message, setMessage] = useState<string | null>(null);
-  const [technical, setTechnical] = useState<string | null>(null);
-  const [hash, setHash] = useState<string | null>(null);
-
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [latest, setLatest] = useState<DummyAirtimeOrder | null>(null);
+  const [toast, setToast] = useState<DummyAirtimeOrder | null>(null);
+  const pendingTimer = useRef<number | null>(null);
+  const hideTimer = useRef<number | null>(null);
   const bundle = findAirtimeBundle(bundleId);
-  const activePotId = pots.some((pot) => pot.id === potId) ? potId : (pots[0]?.id ?? "");
-  const selected = pots.find((pot) => pot.id === activePotId) ?? null;
   const parsedPhone = parseGhanaPhone(phone);
-  const preview = useMemo(
-    () => previewAirtime(bundle?.pesewas ?? null, selected, config.demoGhsPerDusd, config.tokenDecimals),
-    [bundle, selected, config.demoGhsPerDusd, config.tokenDecimals],
-  );
-  const busy =
-    wallet.busy ||
-    phase === "preparing" ||
-    phase === "awaiting_signature" ||
-    phase === "submitting" ||
-    phase === "confirming";
+  const detected = usualNetworkForPhone(phone);
+  const ported = Boolean(detected && detected !== network);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setHash(null);
-    setTechnical(null);
-    if (!parsedPhone || !bundle) {
-      setPhase("contract_rejection");
-      setMessage("Enter a Ghana mobile number, like 0244123456.");
+  useEffect(() => {
+    return () => {
+      if (pendingTimer.current !== null) {
+        window.clearTimeout(pendingTimer.current);
+      }
+      if (hideTimer.current !== null) {
+        window.clearTimeout(hideTimer.current);
+      }
+    };
+  }, []);
+
+  function dismissToast() {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setToast(null);
+  }
+
+  function showSuccess(order: DummyAirtimeOrder) {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+    }
+    setToast(order);
+    hideTimer.current = window.setTimeout(() => {
+      setToast(null);
+      hideTimer.current = null;
+    }, 5000);
+  }
+
+  function onPhoneChange(value: string) {
+    setPhone(value);
+    if (networkLocked) {
       return;
     }
-    if (!selected || !preview.ok) {
-      setPhase("contract_rejection");
-      setMessage(preview.ok ? "Choose a savings pot saved on this device." : preview.message);
-      return;
-    }
-    let address = wallet.address;
-    if (!address) {
-      setPhase("awaiting_signature");
-      setMessage("Choose a Testnet wallet to approve this simulated saving.");
-      address = await wallet.connect();
-      if (!address) {
-        setPhase("wallet_unavailable");
-        setMessage("Connect a Testnet wallet before approving the saving.");
-        return;
-      }
-    }
-    const reference = createSandboxReference();
-    try {
-      const referenceHash = await sha256Hex(reference);
-      const result = await submitOperation({
-        publicKey: address,
-        operation: buildContribute(selected.id, address, preview.dusdBaseUnits, referenceHash),
-        onPhase: setPhase,
-      });
-      const pot = readPotResult(result.returnValue);
-      savePurchase({
-        potId: selected.id,
-        category: "Airtime",
-        description: airtimeDescription(network, bundle.ghs, parsedPhone),
-        purchasePesewas: preview.purchasePesewas.toString(),
-        savingPesewas: preview.savingPesewas.toString(),
-        rate: config.demoGhsPerDusd,
-        dusdBaseUnits: preview.dusdBaseUnits.toString(),
-        reference,
-        purchasedAt: new Date().toISOString().slice(0, 10),
-        transactionHash: result.hash,
-      });
-      setHash(result.hash);
-      setMessage(
-        `Simulated receipt saved. No airtime was sent. The pot balance is now ${formatBaseUnits(pot.balance, config.tokenDecimals)} DUSD.`,
-      );
-    } catch (error) {
-      if (error instanceof TransactionFlowError) {
-        setPhase(error.phase);
-        setMessage(error.message);
-        setTechnical(error.technical);
-        return;
-      }
-      setPhase("network_failure");
-      setMessage(error instanceof Error ? error.message : "The simulated saving could not be submitted.");
+    const next = usualNetworkForPhone(value);
+    if (next) {
+      setNetwork(next);
     }
   }
 
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLatest(null);
+    dismissToast();
+    if (!parsedPhone || !bundle) {
+      setError("Enter a Ghana mobile number, like 024 123 4567.");
+      return;
+    }
+    setError(null);
+    setProcessing(true);
+    const order = createDummyAirtimeOrder({ network, bundleId, phone: parsedPhone });
+    if (pendingTimer.current !== null) {
+      window.clearTimeout(pendingTimer.current);
+    }
+    pendingTimer.current = window.setTimeout(() => {
+      pendingTimer.current = null;
+      saveDummyAirtimeOrder(order);
+      setLatest(order);
+      showSuccess(order);
+      setProcessing(false);
+      setPhone("");
+      setNetworkLocked(false);
+    }, 700);
+  }
+
   return (
-    <form className="space-y-5" onSubmit={onSubmit} noValidate>
+    <div className="space-y-5">
       <p className="rounded-2xl bg-white p-4 text-sm">
-        No airtime is delivered. The phone number stays in this browser. Approving the button moves sandbox DUSD into
-        the pot on Stellar Testnet.
+        This is a dummy top-up, the way a Ghana airtime page asks for a network, a number, and cedis. No airtime is
+        sent, Mobile Money is not debited, and the savings pot does not change.
       </p>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Network</legend>
-        <div className="flex flex-wrap gap-2">
-          {airtimeNetworks.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={item === network ? "primary-button" : "secondary-button"}
-              aria-pressed={item === network}
-              onClick={() => setNetwork(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Airtime amount</legend>
-        <div className="flex flex-wrap gap-2">
-          {airtimeBundles.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={item.id === bundleId ? "primary-button" : "secondary-button"}
-              aria-pressed={item.id === bundleId}
-              onClick={() => setBundleId(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <Field label="Mobile number" hint="A Ghana number for the simulated receipt only." error={phone && !parsedPhone ? "Use 10 digits starting with 0." : undefined}>
-        <input
-          className="text-input"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="0244123456"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-        />
-      </Field>
-      <Field label="Savings pot">
-        <select className="text-input" value={activePotId} onChange={(event) => setPotId(event.target.value)}>
-          <option value="">Choose a pot</option>
-          {pots.map((pot) => (
-            <option key={pot.id} value={pot.id}>
-              {pot.goalName}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Receipt
-        network={network}
-        phone={parsedPhone ? maskPhone(parsedPhone) : "Enter a mobile number"}
-        airtime={bundle ? `GHS ${bundle.ghs}` : ""}
-        preview={preview}
-        rate={config.demoGhsPerDusd}
-        decimals={config.tokenDecimals}
-      />
-      <TxStatus
-        phase={phase}
-        message={message}
-        technical={technical}
-        hash={hash}
-        explorerUrl={hash ? transactionExplorerUrl(config.explorerBaseUrl, hash) : null}
-      />
-      <button className="primary-button" type="submit" disabled={busy}>
-        {busy ? phaseLabel(phase) : wallet.address ? "Approve this simulated saving" : "Connect wallet and approve saving"}
-      </button>
-    </form>
+      <form className="space-y-5 rounded-3xl bg-white p-5" onSubmit={onSubmit} noValidate>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Network</legend>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {ghanaNetworks.map((item) => {
+              const selected = item.id === network;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="rounded-2xl p-4 text-left"
+                  style={{
+                    background: item.card,
+                    color: item.ink,
+                    boxShadow: selected ? "inset 0 0 0 3px #0f5c34" : undefined,
+                  }}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setNetwork(item.id);
+                    setNetworkLocked(true);
+                  }}
+                >
+                  <span className="block h-1 w-10 rounded-full" style={{ background: item.accent }} />
+                  <span className="font-display mt-3 block text-2xl leading-none">{item.name}</span>
+                  <span className="mt-2 block text-sm" style={{ color: item.ink }}>
+                    {item.formerName ? `Formerly ${item.formerName}` : "MoMo *170#"}
+                  </span>
+                  <span className="mt-2 block text-xs tracking-wide" style={{ color: item.ink }}>
+                    {item.prefixes.join(" · ")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Amount</legend>
+          <div className="flex flex-wrap gap-2">
+            {airtimeBundles.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={item.id === bundleId ? "primary-button" : "secondary-button"}
+                aria-pressed={item.id === bundleId}
+                onClick={() => setBundleId(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <Field
+          label="Recipient number"
+          hint="Type the number and the usual network fills in. You can still pick another network if the line was ported."
+          error={error ?? undefined}
+        >
+          <input
+            className="text-input"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="024 123 4567"
+            value={phone}
+            onChange={(event) => onPhoneChange(event.target.value)}
+          />
+        </Field>
+        {ported && detected ? (
+          <p className="text-sm">
+            {findGhanaNetwork(detected).name} usually uses this prefix. You chose {findGhanaNetwork(network).name}.
+            Ported numbers keep the old prefix, so this dummy top-up follows the network you picked.
+          </p>
+        ) : null}
+        <p className="text-sm">Payment: dummy balance. Nothing is charged.</p>
+        <button className="primary-button" type="submit" disabled={processing}>
+          {processing ? "Processing dummy top-up" : `Top up ${bundle?.label ?? "airtime"}`}
+        </button>
+      </form>
+      {toast ? <SuccessToast order={toast} onClose={dismissToast} /> : null}
+      {latest ? <DummyReceipt order={latest} /> : null}
+      {orders.length > 0 ? (
+        <section className="rounded-3xl bg-white p-5" aria-label="Dummy airtime orders">
+          <h2 className="font-display text-2xl">Dummy orders on this device</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {orders.map((order) => (
+              <li key={order.id}>
+                {order.id}: {findGhanaNetwork(order.network).name} GH₵{order.ghs} for {maskPhone(order.phone)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
   );
 }
 
-function Receipt({
-  network,
-  phone,
-  airtime,
-  preview,
-  rate,
-  decimals,
-}: {
-  network: string;
-  phone: string;
-  airtime: string;
-  preview: AirtimePreview;
-  rate: string;
-  decimals: number;
-}) {
+function SuccessToast({ order, onClose }: { order: DummyAirtimeOrder; onClose: () => void }) {
+  const network = findGhanaNetwork(order.network);
   return (
-    <section className="rounded-3xl bg-cream-deep p-4 text-sm" aria-label="Simulated airtime receipt">
-      <h2 className="font-display text-xl">Simulated receipt</h2>
-      <ul className="mt-3 space-y-1">
-        <li>Network: {network}</li>
-        <li>Number: {phone}</li>
-        <li>Airtime: {airtime}</li>
-        {preview.ok ? (
-          <>
-            <li>Saving set aside: GHS {formatPesewas(preview.savingPesewas)}</li>
-            <li>Rule: {preview.ruleLabel}</li>
-            <li>Demonstration rate: {rate} GHS per DUSD</li>
-            <li>Sandbox DUSD to approve: {formatBaseUnits(preview.dusdBaseUnits, decimals)}</li>
-          </>
-        ) : (
-          <li>{preview.message}</li>
-        )}
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl bg-pine px-4 py-3 text-sm text-white shadow-lg"
+      >
+        <span
+          aria-hidden="true"
+          className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-bold text-pine"
+        >
+          ✓
+        </span>
+        <p className="min-w-0 flex-1">
+          <span className="block font-semibold">Top-up recorded</span>
+          <span className="mt-1 block">
+            {network.name} GH₵{order.ghs} for {maskPhone(order.phone)}. No airtime was sent.
+          </span>
+        </p>
+        <button type="button" className="font-semibold text-white" onClick={onClose} aria-label="Dismiss success message">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DummyReceipt({ order }: { order: DummyAirtimeOrder }) {
+  const network = findGhanaNetwork(order.network);
+  return (
+    <section className="rounded-3xl bg-cream-deep p-5" aria-live="polite" aria-label="Dummy airtime receipt">
+      <p className="text-sm font-semibold uppercase tracking-wide text-pine-dark">Dummy success</p>
+      <h2 className="font-display mt-2 text-3xl">Top-up recorded</h2>
+      <ul className="mt-3 space-y-1 text-sm">
+        <li>Order: {order.id}</li>
+        <li>Network: {network.name}</li>
+        <li>Number: {maskPhone(order.phone)}</li>
+        <li>Airtime: GH₵{order.ghs}</li>
+        <li>Payment: dummy balance</li>
       </ul>
-      <p className="mt-3">No airtime was sent. No real money moved.</p>
+      <p className="mt-3 text-sm">No airtime was sent. No money moved. The savings pot is unchanged.</p>
     </section>
   );
 }
 
-type AirtimePreview =
-  | {
-      ok: true;
-      purchasePesewas: bigint;
-      savingPesewas: bigint;
-      dusdBaseUnits: bigint;
-      ruleLabel: string;
-    }
-  | { ok: false; message: string };
+const NO_ORDERS: DummyAirtimeOrder[] = [];
 
-function previewAirtime(
-  purchasePesewas: bigint | null,
-  pot: PotMetadata | null,
-  rate: string,
-  decimals: number,
-): AirtimePreview {
-  if (!purchasePesewas) {
-    return { ok: false, message: "Choose an airtime amount." };
-  }
-  if (!pot) {
-    return { ok: false, message: "Create a pot on this device, then choose it to calculate the saving." };
-  }
-  try {
-    const saved = savingPesewas({
-      rule: pot.rule,
-      purchasePesewas,
-      fixedPesewas: pot.fixedPesewas ? BigInt(pot.fixedPesewas) : undefined,
-      intervalPesewas: pot.intervalPesewas ? BigInt(pot.intervalPesewas) : undefined,
-    });
-    const dusdBaseUnits = pesewasToBaseUnits(saved, parseRateToPesewas(rate), decimals);
-    if (dusdBaseUnits <= 0n) {
-      return { ok: false, message: "That saving rounds down to zero DUSD. Increase the saving or the airtime amount." };
-    }
-    const ruleLabel = pot.rule === "fixed" ? `Fixed GHS ${formatPesewas(saved)}` : `Round up, saving GHS ${formatPesewas(saved)}`;
-    return { ok: true, purchasePesewas, savingPesewas: saved, dusdBaseUnits, ruleLabel };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof MoneyInputError || error instanceof Error ? error.message : "Check the airtime demo.",
-    };
-  }
+function emptyOrders(): DummyAirtimeOrder[] {
+  return NO_ORDERS;
 }
