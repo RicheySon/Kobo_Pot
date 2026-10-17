@@ -34,3 +34,37 @@ export function maskPhone(phone: string): string {
 export function airtimeDescription(network: AirtimeNetwork, ghs: string, phone: string): string {
   return `${network} airtime GHS ${ghs} for ${maskPhone(phone)}`;
 }
+
+export type DummyAirtimeOrder = {
+  id: string;
+  network: AirtimeNetwork;
+  phone: string;
+  ghs: string;
+  createdAt: string;
+};
+
+export function createDummyAirtimeOrder(input: {
+  network: AirtimeNetwork;
+  bundleId: string;
+  phone: string;
+  now?: Date;
+  id?: string;
+}): DummyAirtimeOrder {
+  const bundle = findAirtimeBundle(input.bundleId);
+  const phone = parseGhanaPhone(input.phone);
+  if (!bundle || !phone) {
+    throw new Error("Choose a demo bundle and a Ghana mobile number.");
+  }
+  const now = input.now ?? new Date();
+  const year = now.getUTCFullYear().toString();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+  const suffix = input.id ?? crypto.randomUUID().slice(0, 8);
+  return {
+    id: `DUMMY-${year}${month}${day}-${suffix}`,
+    network: input.network,
+    phone,
+    ghs: bundle.ghs,
+    createdAt: now.toISOString(),
+  };
+}

@@ -24,7 +24,7 @@ export default function HomePage() {
             Create a pot
           </Link>
           <Link className="secondary-button" href="/airtime">
-            Simulate airtime
+            Buy airtime
           </Link>
         </div>
       </section>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { airtimeDescription, findAirtimeBundle, parseGhanaPhone } from "@/lib/savings/airtime";
+import { airtimeDescription, createDummyAirtimeOrder, findAirtimeBundle, parseGhanaPhone } from "@/lib/savings/airtime";
 
 describe("simulated airtime", () => {
   it("lists fixed demo bundles in pesewas", () => {
@@ -18,5 +18,23 @@ describe("simulated airtime", () => {
 
   it("describes the simulated purchase without claiming airtime was sent", () => {
     expect(airtimeDescription("MTN", "10.00", "0244123456")).toBe("MTN airtime GHS 10.00 for 024 412 3456");
+  });
+
+  it("creates a dummy order that does not represent a real payment", () => {
+    const order = createDummyAirtimeOrder({
+      network: "Telecel",
+      bundleId: "ghs-5",
+      phone: "0244123456",
+      now: new Date("2026-10-17T14:00:00.000Z"),
+      id: "abc12345",
+    });
+    expect(order).toEqual({
+      id: "DUMMY-20261017-abc12345",
+      network: "Telecel",
+      phone: "0244123456",
+      ghs: "5.00",
+      createdAt: "2026-10-17T14:00:00.000Z",
+    });
+    expect(() => createDummyAirtimeOrder({ network: "MTN", bundleId: "ghs-5", phone: "123" })).toThrow(/Ghana/);
   });
 });
