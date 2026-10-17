@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { Field } from "@/components/field";
 import {
@@ -27,10 +27,43 @@ export function AirtimeDemo() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [latest, setLatest] = useState<DummyAirtimeOrder | null>(null);
+  const [toast, setToast] = useState<DummyAirtimeOrder | null>(null);
+  const pendingTimer = useRef<number | null>(null);
+  const hideTimer = useRef<number | null>(null);
   const bundle = findAirtimeBundle(bundleId);
   const parsedPhone = parseGhanaPhone(phone);
   const detected = usualNetworkForPhone(phone);
   const ported = Boolean(detected && detected !== network);
+
+  useEffect(() => {
+    return () => {
+      if (pendingTimer.current !== null) {
+        window.clearTimeout(pendingTimer.current);
+      }
+      if (hideTimer.current !== null) {
+        window.clearTimeout(hideTimer.current);
+      }
+    };
+  }, []);
+
+  function dismissToast() {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setToast(null);
+  }
+
+  function showSuccess(order: DummyAirtimeOrder) {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+    }
+    setToast(order);
+    hideTimer.current = window.setTimeout(() => {
+      setToast(null);
+      hideTimer.current = null;
+    }, 5000);
+  }
 
   function onPhoneChange(value: string) {
     setPhone(value);
@@ -46,6 +79,7 @@ export function AirtimeDemo() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLatest(null);
+    dismissToast();
     if (!parsedPhone || !bundle) {
       setError("Enter a Ghana mobile number, like 024 123 4567.");
       return;
@@ -53,9 +87,14 @@ export function AirtimeDemo() {
     setError(null);
     setProcessing(true);
     const order = createDummyAirtimeOrder({ network, bundleId, phone: parsedPhone });
-    window.setTimeout(() => {
+    if (pendingTimer.current !== null) {
+      window.clearTimeout(pendingTimer.current);
+    }
+    pendingTimer.current = window.setTimeout(() => {
+      pendingTimer.current = null;
       saveDummyAirtimeOrder(order);
       setLatest(order);
+      showSuccess(order);
       setProcessing(false);
       setPhone("");
       setNetworkLocked(false);
@@ -144,6 +183,7 @@ export function AirtimeDemo() {
           {processing ? "Processing dummy top-up" : `Top up ${bundle?.label ?? "airtime"}`}
         </button>
       </form>
+      {toast ? <SuccessToast order={toast} onClose={dismissToast} /> : null}
       {latest ? <DummyReceipt order={latest} /> : null}
       {orders.length > 0 ? (
         <section className="rounded-3xl bg-white p-5" aria-label="Dummy airtime orders">
@@ -157,6 +197,35 @@ export function AirtimeDemo() {
           </ul>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function SuccessToast({ order, onClose }: { order: DummyAirtimeOrder; onClose: () => void }) {
+  const network = findGhanaNetwork(order.network);
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl bg-pine px-4 py-3 text-sm text-white shadow-lg"
+      >
+        <span
+          aria-hidden="true"
+          className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-bold text-pine"
+        >
+          ✓
+        </span>
+        <p className="min-w-0 flex-1">
+          <span className="block font-semibold">Top-up recorded</span>
+          <span className="mt-1 block">
+            {network.name} GH₵{order.ghs} for {maskPhone(order.phone)}. No airtime was sent.
+          </span>
+        </p>
+        <button type="button" className="font-semibold text-white" onClick={onClose} aria-label="Dismiss success message">
+          Close
+        </button>
+      </div>
     </div>
   );
 }
