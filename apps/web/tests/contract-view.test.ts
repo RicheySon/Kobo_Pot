@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { contractErrorCodeFromMessage, contractErrorMessage } from "@/lib/contract/errors";
@@ -67,5 +69,12 @@ describe("contract views", () => {
       }),
     ).toThrow(/Testnet/);
     expect(() => assertConfigured({ ...config, contractId: "not-a-contract" })).toThrow(/contract ID/);
+  });
+
+  it("exposes contract ids through static public env access", () => {
+    const source = readFileSync(new URL("../lib/stellar/config.ts", import.meta.url), "utf8");
+    expect(source).toContain("process.env.NEXT_PUBLIC_CONTRACT_ID");
+    expect(source).toContain("process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID");
+    expect(source).not.toContain('read(process.env, "NEXT_PUBLIC_CONTRACT_ID"');
   });
 });

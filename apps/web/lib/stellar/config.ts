@@ -27,8 +27,28 @@ function read(env: Record<string, string | undefined>, name: string, fallback: s
   return value.trim();
 }
 
+// Next.js inlines NEXT_PUBLIC_* only for a static `process.env.NAME` access.
+// Looking the name up dynamically leaves the browser bundle with empty contract
+// ids, so approving a pot fails after the wallet connects.
+function browserPublicEnv(): Record<string, string | undefined> {
+  return {
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+    NEXT_PUBLIC_STELLAR_NETWORK: process.env.NEXT_PUBLIC_STELLAR_NETWORK,
+    NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
+    NEXT_PUBLIC_STELLAR_RPC_URL: process.env.NEXT_PUBLIC_STELLAR_RPC_URL,
+    NEXT_PUBLIC_HORIZON_URL: process.env.NEXT_PUBLIC_HORIZON_URL,
+    NEXT_PUBLIC_CONTRACT_ID: process.env.NEXT_PUBLIC_CONTRACT_ID,
+    NEXT_PUBLIC_TOKEN_CONTRACT_ID: process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ID,
+    NEXT_PUBLIC_TOKEN_SYMBOL: process.env.NEXT_PUBLIC_TOKEN_SYMBOL,
+    NEXT_PUBLIC_TOKEN_DECIMALS: process.env.NEXT_PUBLIC_TOKEN_DECIMALS,
+    NEXT_PUBLIC_EXPLORER_BASE_URL: process.env.NEXT_PUBLIC_EXPLORER_BASE_URL,
+    NEXT_PUBLIC_DEMO_GHS_PER_DUSD: process.env.NEXT_PUBLIC_DEMO_GHS_PER_DUSD,
+    NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE,
+  };
+}
+
 export function loadPublicConfig(
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = browserPublicEnv(),
 ): PublicConfig {
   return publicConfigSchema.parse({
     appName: read(env, "NEXT_PUBLIC_APP_NAME", "KoboPot"),
