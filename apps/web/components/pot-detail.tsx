@@ -123,7 +123,7 @@ export function PotDetail({ potId }: { potId: string }) {
       ) : null}
       <div className="flex flex-wrap gap-2">
         <Link className="primary-button" href="/airtime">
-          Buy airtime
+          Top up airtime
         </Link>
         <Link className="secondary-button" href={`/purchase?pot=${potId}`}>
           Add savings

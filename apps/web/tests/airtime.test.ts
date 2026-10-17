@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { airtimeDescription, createDummyAirtimeOrder, findAirtimeBundle, parseGhanaPhone } from "@/lib/savings/airtime";
+import {
+  airtimeDescription,
+  createDummyAirtimeOrder,
+  findAirtimeBundle,
+  parseGhanaPhone,
+  usualNetworkForPhone,
+} from "@/lib/savings/airtime";
 
 describe("simulated airtime", () => {
   it("lists fixed demo bundles in pesewas", () => {
@@ -17,7 +23,26 @@ describe("simulated airtime", () => {
   });
 
   it("describes the simulated purchase without claiming airtime was sent", () => {
-    expect(airtimeDescription("MTN", "10.00", "0244123456")).toBe("MTN airtime GHS 10.00 for 024 412 3456");
+    expect(airtimeDescription("MTN", "10.00", "0244123456")).toBe(
+      "MTN Ghana airtime GH₵10.00 for 024 412 3456",
+    );
+  });
+
+  it("picks the usual Ghana network from the number prefix", () => {
+    expect(usualNetworkForPhone("024")).toBe("MTN");
+    expect(usualNetworkForPhone("025 000 0000")).toBe("MTN");
+    expect(usualNetworkForPhone("053")).toBe("MTN");
+    expect(usualNetworkForPhone("054")).toBe("MTN");
+    expect(usualNetworkForPhone("055")).toBe("MTN");
+    expect(usualNetworkForPhone("059")).toBe("MTN");
+    expect(usualNetworkForPhone("233201234567")).toBe("Telecel");
+    expect(usualNetworkForPhone("050")).toBe("Telecel");
+    expect(usualNetworkForPhone("026")).toBe("AT");
+    expect(usualNetworkForPhone("027")).toBe("AT");
+    expect(usualNetworkForPhone("056")).toBe("AT");
+    expect(usualNetworkForPhone("057")).toBe("AT");
+    expect(usualNetworkForPhone("02")).toBeNull();
+    expect(usualNetworkForPhone("021")).toBeNull();
   });
 
   it("creates a dummy order that does not represent a real payment", () => {
