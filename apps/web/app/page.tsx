@@ -23,6 +23,9 @@ export default function HomePage() {
           <Link className="secondary-button" href="/pot/new">
             Create a pot
           </Link>
+          <Link className="secondary-button" href="/airtime">
+            Simulate airtime
+          </Link>
         </div>
       </section>
       <DeploymentNotice />

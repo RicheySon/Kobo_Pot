@@ -18,6 +18,7 @@ export function SiteHeader() {
         </Link>
         <nav className="flex flex-wrap items-center gap-2 text-sm" aria-label="Primary">
           <NavLink href="/dashboard">Dashboard</NavLink>
+          <NavLink href="/airtime">Airtime</NavLink>
           <NavLink href="/purchase">Add savings</NavLink>
           <NavLink href={detailHref}>Pot details</NavLink>
           <span className="rounded-full bg-pine/10 px-3 py-1 font-medium text-pine-dark">
